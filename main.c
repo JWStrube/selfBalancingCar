@@ -79,6 +79,11 @@ gpio_t MOTOR_2_INA = {RB, 0, OUTPUT};
 gpio_t MOTOR_2_INB = {RB, 1, OUTPUT};
 gpio_t ACCEL_CS = {RB, 6, OUTPUT};
 
+gpio_t ACL_SS = {RB, 6, OUTPUT};
+gpio_t ACL_SDI = {RB, 7, INPUT};
+gpio_t ACL_SCK = {RB, 8, OUTPUT};
+gpio_t ACL_SDO = {RB, 9, OUTPUT};
+
 uint8_t gpioSetDir(gpio_t * pin,  uint8_t dir)
 {
     pin->dir = dir;
@@ -336,6 +341,11 @@ int main(int argc, char** argv) {
     gpioSetDir(&MOTOR_1_INB, OUTPUT);
     gpioSetDir(&MOTOR_2_INA, OUTPUT);
     gpioSetDir(&MOTOR_2_INB, OUTPUT);
+
+    gpioSetDir(&ACL_SS, OUTPUT);
+    gpioSetDir(&ACL_SDI, INPUT);
+    gpioSetDir(&ACL_SCK, OUTPUT);
+    gpioSetDir(&ACL_SDO, OUTPUT);
 
     P1TCONbits.PTEN = 1;
      //SPIConfiguration MASTER mode sending 8 bits
