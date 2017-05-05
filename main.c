@@ -77,7 +77,6 @@ gpio_t MOTOR_1_INA = {RA, 0, OUTPUT};
 gpio_t MOTOR_1_INB = {RA, 1, OUTPUT};
 gpio_t MOTOR_2_INA = {RB, 0, OUTPUT};
 gpio_t MOTOR_2_INB = {RB, 1, OUTPUT};
-gpio_t ACCEL_CS = {RB, 6, OUTPUT};
 
 gpio_t ACL_SS = {RB, 6, OUTPUT};
 gpio_t ACL_SDI = {RB, 7, INPUT};
@@ -243,20 +242,20 @@ uint8_t SPI_Receive()
 
 void SPI_Accel_Write(uint8_t Addr, uint8_t Data)
 {
-    gpioWrite(&ACCEL_CS, LOW);
+    gpioWrite(&ACL_SS, LOW);
     SPI_Transmit(0x0A);
     SPI_Transmit(Addr);
     SPI_Transmit(Data);
-    gpioWrite(&ACCEL_CS, HIGH);
+    gpioWrite(&ACL_SS, HIGH);
 }
 
 uint8_t SPI_Accel_Read(uint8_t Addr)
 {
-    gpioWrite(&ACCEL_CS, LOW);
+    gpioWrite(&ACL_SS, LOW);
     SPI_Transmit(0x0B);
     SPI_Transmit(Addr);
     uint8_t ret = SPI_Receive();
-    gpioWrite(&ACCEL_CS, HIGH);
+    gpioWrite(&ACL_SS, HIGH);
     return ret;
 }
 
@@ -373,10 +372,10 @@ int main(int argc, char** argv) {
 
     //Define I/O
     //TRISBbits.TRISB6 = 0;
-    gpioSetDir(&ACCEL_CS, OUTPUT);
-    TRISBbits.TRISB8 = 0;
-    TRISBbits.TRISB9 = 0;
-    TRISBbits.TRISB7 = 0;
+    gpioSetDir(&ACL_SS, OUTPUT);
+    gpioSetDir(&ACL_SDI, INPUT);
+    gpioSetDir(&ACL_SCK, OUTPUT);
+    gpioSetDir(&ACL_SDO, OUTPUT);
 
     SPI_Accel_Write(ACCEL_THRESHOLD_ACTIVITY_LREG, 0x00);
 
