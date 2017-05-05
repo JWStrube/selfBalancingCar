@@ -38,16 +38,22 @@
  *
  */
 
-enum port_t{
+
+typedef enum {
     RA = 0,
     RB
-};
+}port_t;
 
-struct gpio_t{
+typedef struct {
     const port_t port;
     const uint8_t pin;
     uint8_t dir;
-};
+}gpio_t;
+
+gpio_t MOTOR_1_INA = {RA, 0, OUTPUT};
+gpio_t MOTOR_1_INB = {RA, 1, OUTPUT};
+gpio_t MOTOR_2_INA = {RB, 0, OUTPUT};
+gpio_t MOTOR_2_INB = {RB, 1, OUTPUT};
 
 uint8_t gpioSetDir(gpio_t * pin,  uint8_t dir)
 {
@@ -57,22 +63,22 @@ uint8_t gpioSetDir(gpio_t * pin,  uint8_t dir)
     {
         if(dir == OUTPUT)
         {
-            TRISA &= ~(1 << pin);
+            TRISA &= ~(1 << pin->pin);
         }
         else
         {
-            TRISA |= (1 << pin);
+            TRISA |= (1 << pin->pin);
         }
     }
     else if(pin->port == RB)
     {
         if(dir == OUTPUT)
         {
-            TRISB &= ~(1 << pin);
+            TRISB &= ~(1 << pin->pin);
         }
         else
         {
-            TRISB |= (1 << pin);
+            TRISB |= (1 << pin->pin);
         }
     }
     else
@@ -92,22 +98,22 @@ void gpioWrite(gpio_t * pin, uint8_t val)
         {
             if(val == LOW)
             {
-                LATA &= ~(1 << pin);
+                LATA &= ~(1 << pin->pin);
             }
             else
             {
-                LATA |= (1 << pin);
+                LATA |= (1 << pin->pin);
             }
         }
-        else if(pni->port == RB)
+        else if(pin->port == RB)
         {
             if(val == LOW)
             {
-                LATB &= ~(1 << pin);
+                LATB &= ~(1 << pin->pin);
             }
             else
             {
-                LATB |= (1 << pin);
+                LATB |= (1 << pin->pin);
             }
         }
         else
@@ -128,11 +134,11 @@ uint8_t gpioRead(gpio_t * pin)
     uint8_t ret;
     if(pin->port == RA)
     {
-        ret = (PORTA & (1 << pin)) ? 1 : 0;
+        ret = (PORTA & (1 << pin->pin)) ? 1 : 0;
     }
     else if(pin->port == RB)
     {
-        ret = (PORTB & (1 << pin)) ? 1 : 0;
+        ret = (PORTB & (1 << pin->pin)) ? 1 : 0;
     }
 
     return ret;
@@ -160,13 +166,13 @@ void motorWrite(uint8_t motor, float value)
     {
         if(dir == 0)
         {
-            gpioWrite(MOTOR_1_INA, HIGH);
-            gpioWrite(MOTOR_1_INB, LOW);
+            gpioWrite(&MOTOR_1_INA, HIGH);
+            gpioWrite(&MOTOR_1_INB, LOW);
         }
         else
         {
-            gpioWrite(MOTOR_1_INA, LOW);
-            gpioWrite(MOTOR_1_INB, HIGH);
+            gpioWrite(&MOTOR_1_INA, LOW);
+            gpioWrite(&MOTOR_1_INB, HIGH);
         }
 
         pwmWrite(1, pwmVal);
@@ -175,13 +181,13 @@ void motorWrite(uint8_t motor, float value)
     {
         if(dir == 0)
         {
-            gpioWrite(MOTOR_2_INA, HIGH);
-            gpioWrite(MOTOR_2_INB, LOW);
+            gpioWrite(&MOTOR_2_INA, HIGH);
+            gpioWrite(&MOTOR_2_INB, LOW);
         }
         else
         {
-            gpioWrite(MOTOR_2_INA, LOW);
-            gpioWrite(MOTOR_2_INB, HIGH);
+            gpioWrite(&MOTOR_2_INA, LOW);
+            gpioWrite(&MOTOR_2_INB, HIGH);
         }
 
         pwmWrite(2, pwmVal);
@@ -419,10 +425,7 @@ double getTilt()
 //    return thetaZ;
 }
 
-gpio_t MOTOR_1_INA = {RA, 0, OUTPUT};
-gpio_t MOTOR_1_INB = {RA, 1, OUTPUT};
-gpio_t MOTOR_2_INA = {RB, 0, OUTPUT};
-gpio_t MOTOR_2_INA = {RB, 1, OUTPUT};
+
 
 int main(int argc, char** argv) {
 
@@ -442,10 +445,10 @@ int main(int argc, char** argv) {
     PWM1CON1bits.PMOD3 = 1;
     PWM1CON1bits.PMOD2 = 1;
     PWM1CON1bits.PMOD1 = 1;
-    PWM1CON1bits.PEN1L = 1;
+    PWM1CON1bits.PEN1L = 0;
     PWM1CON1bits.PEN1H = 1;
     PWM1CON1bits.PEN2L = 0;
-    PWM1CON1bits.PEN2H = 0;
+    PWM1CON1bits.PEN2H = 1;
     PWM1CON1bits.PEN3L = 0;
     PWM1CON1bits.PEN3H = 0;
 
@@ -456,16 +459,17 @@ int main(int argc, char** argv) {
     P1DC2 = 0;
 
     AD1PCFGL = 0xFFFF;
-    gpioSetDir(MOTOR_1_INA, OUTPUT);
-    gpioSetDir(MOTOR_1_INB, OUTPUT);
-    gpioSetDir(MOTOR_2_INA, OUTPUT);
-    gpioSetDir(MOTOR_2_INB, OUTPUT);
+    gpioSetDir(&MOTOR_1_INA, OUTPUT);
+    gpioSetDir(&MOTOR_1_INB, OUTPUT);
+    gpioSetDir(&MOTOR_2_INA, OUTPUT);
+    gpioSetDir(&MOTOR_2_INB, OUTPUT);
 
     P1TCONbits.PTEN = 1;
 
-    while(true)
+    while(TRUE)
     {
-
+        motorWrite(1, -1);
+        //pwmWrite(2, 128);
     }
 
     return (EXIT_SUCCESS);
