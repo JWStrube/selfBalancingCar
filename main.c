@@ -55,6 +55,11 @@ gpio_t MOTOR_1_INB = {RA, 1, OUTPUT};
 gpio_t MOTOR_2_INA = {RB, 0, OUTPUT};
 gpio_t MOTOR_2_INB = {RB, 1, OUTPUT};
 
+gpio_t ACL_SS = {RB, 6, OUTPUT};
+gpio_t ACL_SDI = {RB, 7, INPUT};
+gpio_t ACL_SCK = {RB, 8, OUTPUT};
+gpio_t ACL_SDO = {RB, 9, OUTPUT};
+
 uint8_t gpioSetDir(gpio_t * pin,  uint8_t dir)
 {
     pin->dir = dir;
@@ -212,153 +217,42 @@ unsigned char SPI_Receive()
     return SPI1BUF;
 }
 
-void Write_Threshold_Activity_LReg(unsigned char DataByte)
+void SPI_Write (unsigned char addr, unsigned char DataByte)
 {
     LATBbits.LATB6 = 0;
     SPI_Transmit (0x0A);
-    SPI_Transmit (0x20);
+    SPI_Transmit (addr);
     SPI_Transmit (DataByte);
     LATBbits.LATB6 = 1;
 }
 
-void Write_Threshold_Activity_HReg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x21);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
+unsigned char Write_Threshold_Activity_LReg     = 0x20;
+unsigned char Write_Threshold_Activity_HReg     = 0x21;
+unsigned char Write_Threshold_Inactivity_LReg   = 0x23;
+unsigned char Write_Threshold_Inactivity_HReg   = 0x24;
+unsigned char Write_Time_Activity_Reg           = 0x22;
+unsigned char Write_Time_Inactivity_LReg        = 0x25;
+unsigned char Write_Time_Inactivity_HReg        = 0x26;
+unsigned char Write_Active_Inactive_Control_Reg = 0x27;
+unsigned char Write_Filter_Control_Reg          = 0x2C;
+unsigned char Write_Power_Control_Reg           = 0x2D;
+unsigned char Write_INTMAP1_Reg                 = 0x2A;
+unsigned char Write_INTMAP2_Reg                 = 0x2B;
 
-void Write_Threshold_Inactivity_LReg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x23);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
-
-void Write_Threshold_Inactivity_HReg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x24);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
-
-void Write_Time_Activity_Reg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x22);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
-
-void Write_Time_Inactivity_LReg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x25);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
-
-void Write_Time_Inactivity_HReg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x26);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
-
-void Write_Active_Inactive_Control_Reg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x27);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
-
-void Write_Filter_Control_Reg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x2C);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
-
-void Write_Power_Control_Reg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x2D);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
-
-void Write_INTMAP1_Reg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x2A);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
-
-void Write_INTMAP2_Reg(unsigned char DataByte)
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit (0x0A);
-    SPI_Transmit (0x2B);
-    SPI_Transmit (DataByte);
-    LATBbits.LATB6 = 1;
-}
-
-unsigned char Read_Status_Reg()
+unsigned char SPI_Read (unsigned char addr)
 {
     LATBbits.LATB6 = 0;
     SPI_Transmit(0x0B);
-    SPI_Transmit(0x0B);
-    unsigned char status = SPI_Receive();
+    SPI_Transmit(addr);
+    unsigned char data = SPI_Receive();
     LATBbits.LATB6 = 1;
-    return status;
+    return data;
 }
 
-unsigned char Read_8bit_XData()
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit(0x0B);
-    SPI_Transmit(0x08);
-    unsigned char XData = SPI_Receive();
-    LATBbits.LATB6 = 1;
-    return XData;
-}
-
-unsigned char Read_8bit_YData()
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit(0x0B);
-    SPI_Transmit(0x09);
-    unsigned char YData = SPI_Receive();
-    LATBbits.LATB6 = 1;
-    return YData;
-}
-
-unsigned char Read_8bit_ZData()
-{
-    LATBbits.LATB6 = 0;
-    SPI_Transmit(0x0B);
-    SPI_Transmit(0x0A);
-    unsigned char ZData = SPI_Receive();
-    LATBbits.LATB6 = 1;
-    return ZData;
-}
+unsigned char ReadStatus    = 0x0B;
+unsigned char ReadX         = 0x08;
+unsigned char ReadY         = 0x09;
+unsigned char ReadZ         = 0x0A;
 
 //Stub
 //Should return the robots tilt from vertical in degrees
@@ -387,34 +281,30 @@ double getTilt()
     RPOR3bits.RP6R = 9;
     PPSLock;
     
-    //Define I/O
-    TRISBbits.TRISB6 = 0;
-    TRISBbits.TRISB8 = 0;
-    TRISBbits.TRISB9 = 0;
-    TRISBbits.TRISB7 = 0;
+//    //Define I/O
+//    TRISBbits.TRISB6 = 0;
+//    TRISBbits.TRISB8 = 0;
+//    TRISBbits.TRISB9 = 0;
+//    TRISBbits.TRISB7 = 1;
     
-    Write_Threshold_Activity_LReg(0x00);
-    
-    Write_Threshold_Activity_HReg(0x00);
-    Write_Threshold_Inactivity_LReg(0x00);
-    
-    Write_Threshold_Inactivity_HReg(0x00);
-    Write_Time_Inactivity_LReg(0x0A);
-    
-    Write_Active_Inactive_Control_Reg(0x05);
-    
-    Write_Filter_Control_Reg(0x03);
-    Write_Power_Control_Reg(0x02);
+    SPI_Write(Write_Threshold_Activity_LReg, 0x00);
+    SPI_Write(Write_Threshold_Activity_HReg, 0x00);
+    SPI_Write(Write_Threshold_Inactivity_LReg, 0x00);
+    SPI_Write(Write_Threshold_Inactivity_HReg, 0x00);
+    SPI_Write(Write_Time_Inactivity_LReg, 0x0A);
+    SPI_Write(Write_Active_Inactive_Control_Reg, 0x05);
+    SPI_Write(Write_Filter_Control_Reg, 0x03);
+    SPI_Write(Write_Power_Control_Reg, 0x02);
     
     double X, Y, Z;
     double thetaX, thetaY, thetaZ;
     
-    while((Read_Status_Reg() & 0x01) == 0x00)
-        Read_Status_Reg();
+    while((SPI_Read(ReadStatus) & 0x01) == 0x00)
+        SPI_Read(ReadStatus);
     
-    X = Read_8bit_XData()*16;
-    Y = Read_8bit_YData()*16;
-    Z = Read_8bit_ZData()*16;
+    X = SPI_Read(ReadX)*16;
+    Y = SPI_Read(ReadY)*16;
+    Z = SPI_Read(ReadZ)*16;
     
     thetaX = (atan((X)/sqrt(Y*Y + Z*Z)))*180.0/3.14;
     thetaY = (atan((Y)/sqrt(X*X + Z*Z)))*180.0/3.14;
@@ -424,8 +314,6 @@ double getTilt()
 //    return thetaY;
 //    return thetaZ;
 }
-
-
 
 int main(int argc, char** argv) {
 
@@ -463,6 +351,11 @@ int main(int argc, char** argv) {
     gpioSetDir(&MOTOR_1_INB, OUTPUT);
     gpioSetDir(&MOTOR_2_INA, OUTPUT);
     gpioSetDir(&MOTOR_2_INB, OUTPUT);
+    
+    gpioSetDir(&ACL_SS, OUTPUT);
+    gpioSetDir(&ACL_SDI, INPUT);
+    gpioSetDir(&ACL_SCK, OUTPUT);
+    gpioSetDir(&ACL_SDO, OUTPUT);       
 
     P1TCONbits.PTEN = 1;
 
