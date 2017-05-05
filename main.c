@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <xc.h>
 #include <math.h>
+#include <libpic30.h>
 
 //Configuration FOSC
 #pragma config FCKSM = 3
@@ -50,6 +51,11 @@
 #define ACCEL_XDATA_REG 0x08
 #define ACCEL_YDATA_REG 0x09
 #define ACCEL_ZDATA_REG 0x0A
+
+ #define FOSC  8000000LL  // clock-frequecy in Hz with suffix LL (64-bit-long), eg. 32000000LL for 32MHz
+ #define FCY       (FOSC/2)  // MCU is running at FCY MIPS
+ #define delay_us(x) __delay32(((x*FCY)/1000000L)) // delays x us
+ #define delay_ms(x) __delay32(((x*FCY)/1000L))  // delays x ms
 
 /*
  *
@@ -272,23 +278,23 @@ double getTilt()
 //    return thetaZ;
 }
 
-double PID(double PV, double SP)
+double PD(double PV, double SP)
 {
     const double Kp = 1;
-    const double Ki = 0;
+    //const double Ki = 0;
     const double Kd = 0;
 
     static double error = 0;
     double prevError;
-    static double integral = 0;
+    //static double integral = 0;
     double derivative;
 
     prevError = error;
     error = SP - PV;
-    integral = integral + error;
+    //integral = integral + error;
     derivative = error - prevError;
 
-    double CV = (Kp * error) + (Ki * integral) + (Kd * derivative);
+    double CV = (Kp * error) + (Kd * derivative);
     CV = CV > 1.0 ? 1.0 : (CV < -1.0 ? -1.0 : CV);
 
     return CV;
@@ -378,9 +384,10 @@ int main(int argc, char** argv) {
     while(TRUE)
     {
         double angle = getTilt();
-        double motorSpeed = PID(angle, 0);
+        double motorSpeed = PD(angle, 0);
         motorWrite(1, motorSpeed);
         motorWrite(2, motorSpeed);
+        delay_ms(10);
     }
 
     return (EXIT_SUCCESS);
