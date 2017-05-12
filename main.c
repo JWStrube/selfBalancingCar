@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <xc.h>
 #include <math.h>
 #include <libpic30.h>
@@ -24,6 +25,8 @@
 #pragma config HPOL = 1
 #pragma config LPOL = 1
 #pragma config FWDTEN = 0
+
+#pragma config JTAGEN = 0
 
 #define OUTPUT 0
 #define INPUT 1
@@ -52,10 +55,17 @@
 #define ACCEL_YDATA_REG 0x09
 #define ACCEL_ZDATA_REG 0x0A
 
- #define FOSC  8000000LL  // clock-frequecy in Hz with suffix LL (64-bit-long), eg. 32000000LL for 32MHz
- #define FCY       (FOSC/2)  // MCU is running at FCY MIPS
- #define delay_us(x) __delay32(((x*FCY)/1000000L)) // delays x us
- #define delay_ms(x) __delay32(((x*FCY)/1000L))  // delays x ms
+#define ACCEL_XDATA_L_REG 0x0E
+
+#define FOSC  8000000LL  // clock-frequecy in Hz with suffix LL (64-bit-long), eg. 32000000LL for 32MHz
+#define FCY       (FOSC/2)  // MCU is running at FCY MIPS
+#define delay_us(x) __delay32(((x*FCY)/1000000L)) // delays x us
+#define delay_ms(x) __delay32(((x*FCY)/1000L))  // delays x ms
+
+#define MOTOR_MAX_VOLTAGE 6
+#define PSU_VOLTAGE 12
+
+#define PI 3.14159265358979323846
 
 /*
  *
@@ -77,13 +87,14 @@ gpio_t MOTOR_1_INA = {RA, 0, OUTPUT};
 gpio_t MOTOR_1_INB = {RA, 1, OUTPUT};
 gpio_t MOTOR_2_INA = {RB, 0, OUTPUT};
 gpio_t MOTOR_2_INB = {RB, 1, OUTPUT};
+gpio_t ACCEL_CS = {RB, 6, OUTPUT};
 
-gpio_t ACL_SS = {RB, 6, OUTPUT};
-gpio_t ACL_SDI = {RB, 7, INPUT};
-gpio_t ACL_SCK = {RB, 8, OUTPUT};
-gpio_t ACL_SDO = {RB, 9, OUTPUT};
+//gpio_t ACL_SS = {RB, 6, OUTPUT};
+gpio_t ACL_SDI = {RB, 2, INPUT}; //7
+gpio_t ACL_SCK = {RB, 3, OUTPUT}; //8
+gpio_t ACL_SDO = {RB, 5, OUTPUT}; //9
 
-uint8_t gpioSetDir(gpio_t * pin,  uint8_t dir)
+bool gpioSetDir(gpio_t * pin,  uint8_t dir)
 {
     pin->dir = dir;
     uint8_t ret = TRUE;
@@ -117,7 +128,7 @@ uint8_t gpioSetDir(gpio_t * pin,  uint8_t dir)
     return ret;
 }
 
-void gpioWrite(gpio_t * pin, uint8_t val)
+bool gpioWrite(gpio_t * pin, uint8_t val)
 {
     uint8_t ret = TRUE;
     if(pin->dir == OUTPUT)
@@ -157,7 +168,7 @@ void gpioWrite(gpio_t * pin, uint8_t val)
     return ret;
 }
 
-uint8_t gpioRead(gpio_t * pin)
+bool gpioRead(gpio_t * pin)
 {
     uint8_t ret;
     if(pin->port == RA)
@@ -188,7 +199,7 @@ void pwmWrite(uint8_t pin, uint8_t value)
 void motorWrite(uint8_t motor, float value)
 {
     uint8_t dir = value >= 1 ? 1 : 0;
-    uint8_t pwmVal = (value < 0 ? -value : value) * 255;
+    uint8_t pwmVal = (float)(value < 0 ? -value : value) * ((float)MOTOR_MAX_VOLTAGE / (float)PSU_VOLTAGE) * 255.0;
 
     if(motor == 1)
     {
@@ -242,42 +253,78 @@ uint8_t SPI_Receive()
 
 void SPI_Accel_Write(uint8_t Addr, uint8_t Data)
 {
-    gpioWrite(&ACL_SS, LOW);
+    gpioWrite(&ACCEL_CS, LOW);
     SPI_Transmit(0x0A);
     SPI_Transmit(Addr);
     SPI_Transmit(Data);
-    gpioWrite(&ACL_SS, HIGH);
+    gpioWrite(&ACCEL_CS, HIGH);
 }
 
 uint8_t SPI_Accel_Read(uint8_t Addr)
 {
-    gpioWrite(&ACL_SS, LOW);
+    gpioWrite(&ACCEL_CS, LOW);
     SPI_Transmit(0x0B);
     SPI_Transmit(Addr);
     uint8_t ret = SPI_Receive();
-    gpioWrite(&ACL_SS, HIGH);
+    gpioWrite(&ACCEL_CS, HIGH);
     return ret;
+}
+
+void SPI_Accel_Read_Bytes(uint8_t Addr, uint8_t numBytes, uint8_t * data)
+{
+    gpioWrite(&ACCEL_CS, LOW);
+    SPI_Transmit(0x0B);
+    SPI_Transmit(Addr);
+    uint8_t i;
+    for(i = 0; i < numBytes; i++)
+    {
+        data[i] = SPI_Receive();
+    }
+    gpioWrite(&ACCEL_CS, HIGH);
+}
+
+void normalize(float * X, float * Y, float *Z)
+{
+    float magnitude = sqrt(*X * *X + *Y * *Y + *Z * *Z);
+    *X /= magnitude;
+    *Y /= magnitude;
+    *Z /= magnitude;
 }
 
 //Should return the robots tilt from vertical in degrees
 double getTilt()
 {
 
-    double X, Y, Z;
+    float X, Y, Z;
     double thetaX, thetaY, thetaZ;
 
-    while((SPI_Accel_Read(ACCEL_STATUS_REG) & 0x01) == 0x00)
-        SPI_Accel_Read(ACCEL_STATUS_REG);
+    if((SPI_Accel_Read(ACCEL_STATUS_REG) & 0x01) != 0x0)
+    {
+#if 0
+        X = SPI_Accel_Read(ACCEL_XDATA_REG);
+        Y = SPI_Accel_Read(ACCEL_YDATA_REG);
+        Z = SPI_Accel_Read(ACCEL_ZDATA_REG);
+#endif
+        uint8_t accelData[6];
+        SPI_Accel_Read_Bytes(ACCEL_XDATA_L_REG, 6, accelData);
+        X = (float)((((int16_t)accelData[1] << 8)) | accelData[0]);
+        Y = (float)((((int16_t)accelData[3] << 8)) | accelData[2]);
+        Z = (float)((((int16_t)accelData[5] << 8)) | accelData[4]);
 
-    X = SPI_Accel_Read(ACCEL_XDATA_REG)*16;
-    Y = SPI_Accel_Read(ACCEL_YDATA_REG)*16;
-    Z = SPI_Accel_Read(ACCEL_ZDATA_REG)*16;
+        normalize(&X, &Y, &Z);
 
-    thetaX = (atan((X)/sqrt(Y*Y + Z*Z)))*180.0/3.14;
-    //thetaY = (atan((Y)/sqrt(X*X + Z*Z)))*180.0/3.14;
-    //thetaZ = (atan(sqrt(X*X + Y*Y)/(Z)))*180.0/3.14;
+        thetaX = (atan2(Y, Z)) * (180.0 / PI);
+        const float thetaXOffset = -8.5;
+        thetaX += thetaXOffset;
+        //thetaX = (atan((X)/sqrt(Y*Y + Z*Z)))*(180.0/3.14);
+        //thetaY = (atan((Y)/sqrt(X*X + Z*Z)))*180.0/3.14;
+        //thetaZ = (atan(sqrt(X*X + Y*Y)/(Z)))*180.0/3.14;
+        return thetaX;
+    }
+    else {
+        return 0;
+    }
 
-    return thetaX;
 //    return thetaY;
 //    return thetaZ;
 }
@@ -341,7 +388,7 @@ int main(int argc, char** argv) {
     gpioSetDir(&MOTOR_2_INA, OUTPUT);
     gpioSetDir(&MOTOR_2_INB, OUTPUT);
 
-    gpioSetDir(&ACL_SS, OUTPUT);
+    gpioSetDir(&ACCEL_CS, OUTPUT);
     gpioSetDir(&ACL_SDI, INPUT);
     gpioSetDir(&ACL_SCK, OUTPUT);
     gpioSetDir(&ACL_SDO, OUTPUT);
@@ -350,12 +397,12 @@ int main(int argc, char** argv) {
      //SPIConfiguration MASTER mode sending 8 bits
     SPI1CON1bits.DISSCK = 0;
     SPI1CON1bits.DISSDO = 0;
-    SPI1CON1bits.MODE16 = 0;
+    SPI1CON1bits.MODE16 = 0;//byte-wide
     SPI1CON1bits.SSEN = 0;
-    SPI1CON1bits.MSTEN = 1;
-    SPI1CON1bits.SMP = 0;
+    SPI1CON1bits.MSTEN = 1; //Master mode
+    SPI1CON1bits.SMP = 0; //Input data is sampled at the middle of data output time
     SPI1CON1bits.CKE = 1;
-    SPI1CON1bits.CKP = 0;
+    SPI1CON1bits.CKP = 0; //set to 1?
     SPI1CON1bits.PPRE = 1;
     SPI1CON1bits.SPRE = 7;
     SPI1STATbits.SPIROV = 0;
@@ -363,19 +410,13 @@ int main(int argc, char** argv) {
 
     //Peripheral Pin Select with RP pins
     PPSUnLock;
-    RPOR4bits.RP8R = 8;
-    RPINR20bits.SCK1R = 8;
-    RPOR4bits.RP9R = 7;
-    RPINR20bits.SDI1R = 7;
-    RPOR3bits.RP6R = 9;
-    PPSLock;
+    RPOR1bits.RP3R = 8; //SCK1 RP3
 
-    //Define I/O
-    //TRISBbits.TRISB6 = 0;
-    gpioSetDir(&ACL_SS, OUTPUT);
-    gpioSetDir(&ACL_SDI, INPUT);
-    gpioSetDir(&ACL_SCK, OUTPUT);
-    gpioSetDir(&ACL_SDO, OUTPUT);
+    //RPINR20bits.SCK1R = 8;
+    RPOR2bits.RP5R = 7; //SDO RP5
+    RPINR20bits.SDI1R = 2; //SDI RP2
+    //RPOR3bits.RP6R = 9;
+    PPSLock;
 
     SPI_Accel_Write(ACCEL_THRESHOLD_ACTIVITY_LREG, 0x00);
 
@@ -394,8 +435,9 @@ int main(int argc, char** argv) {
     {
         double angle = getTilt();
         double motorSpeed = PD(angle, 0);
-        motorWrite(1, motorSpeed);
-        motorWrite(2, motorSpeed);
+        motorWrite(1, 1); //test
+        //motorWrite(1, motorSpeed);
+        //motorWrite(2, motorSpeed);
         delay_ms(10);
     }
 
