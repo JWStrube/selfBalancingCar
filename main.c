@@ -93,7 +93,7 @@ gpio_t ACL_SDO = {RB, 5, OUTPUT};
 //Set the direction of the pin
 bool gpioSetDir(gpio_t * pin, uint8_t dir) {
     pin->dir = dir;
-    uint8_t ret = TRUE;
+    uint8_t ret = true;
     if (pin->port == RA) {
         if (dir == OUTPUT) {
             TRISA &= ~(1 << pin->pin);
@@ -115,7 +115,7 @@ bool gpioSetDir(gpio_t * pin, uint8_t dir) {
 
 //GPIO output
 bool gpioWrite(gpio_t * pin, uint8_t val) {
-    uint8_t ret = TRUE;
+    uint8_t ret = true;
     if (pin->dir == OUTPUT) {
         if (pin->port == RA) {
             if (val == LOW) {
@@ -307,7 +307,7 @@ double getTilt() {
 
         normalize(&X, &Y, &Z);
 
-        thetaX = (atan2(Y, Z)) * (180.0 / PI); //Estimation of roll about the X axis
+        thetaX = (atan2(Y, sqrt(Z * Z + X * X))) * (180.0 / PI); //Estimation of roll about the X axis
 
         return thetaX;
     } else {
@@ -322,9 +322,9 @@ double getTilt() {
 //SP is set point, or the angle we want it to balance out
 double PID(double PV, double SP) {
     //Kp, Ki, Kd values are not final and must be properly tuned for successful self balancing
-    const double Kp = 0.035;
-    const double Ki = 0.02;
-    const double Kd = 0.0;
+    const double Kp = 0.05;
+    const double Ki = 0.05;
+    const double Kd = 0.000;
 
     static double error = 0;
     double prevError;
